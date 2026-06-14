@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Netflix catalogue intelligence and content trend analysis dashboard.">
+  <title>Netflix Content Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Netflix Content Intelligence home">
+        <span class="brand-mark">N</span>
+        <span><strong>Content</strong><small>Intelligence</small></span>
+      </a>
+
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-view="overview"><span>⌂</span>Overview</button>
+        <button class="nav-item" data-view="trends"><span>⌁</span>Trend analysis</button>
+        <button class="nav-item" data-view="geography"><span>◎</span>Geographic intel</button>
+        <button class="nav-item" data-view="people"><span>◇</span>Cast & directors</button>
+        <button class="nav-item" data-view="library"><span>▤</span>Content library</button>
+      </nav>
+
+      <div class="sidebar-card">
+        <span class="eyebrow">DATA STATUS</span>
+        <div class="status-line"><i></i><strong>Catalogue current</strong></div>
+        <p>Source snapshot through 2022</p>
+        <div class="pipeline"><span></span></div>
+        <small>Daily pipeline completed</small>
+      </div>
+
+      <div class="profile">
+        <div class="avatar">K</div>
+        <div><strong>Kshitij</strong><small>Content Strategy</small></div>
+        <button aria-label="Profile options">•••</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
+        <div class="search">
+          <span>⌕</span>
+          <input id="globalSearch" type="search" placeholder="Search titles, genres, people..." aria-label="Search content">
+          <kbd>⌘ K</kbd>
+        </div>
+        <div class="header-actions">
+          <button class="icon-button" aria-label="Notifications">♢<i></i></button>
+          <button class="import-button" id="importButton"><span>＋</span> Import data</button>
+          <button class="export-button" id="exportButton"><span>⇩</span> Export CSV</button>
+        </div>
+      </header>
+
+      <section class="page">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow" id="sectionEyebrow">CATALOGUE OVERVIEW</span>
+            <h1 id="pageTitle">Good morning, Kshitij.</h1>
+            <p id="pageSubtitle">Here is what is happening across the Netflix catalogue.</p>
+          </div>
+          <div class="date-chip"><span>◷</span><strong id="datasetLabel">Bundled dataset</strong><b id="datasetPeriod">Through 2022</b></div>
+        </div>
+
+        <div class="filter-bar" aria-label="Dashboard filters">
+          <label>Type
+            <select id="typeFilter">
+              <option value="All">All titles</option>
+              <option value="Movie">Movies</option>
+              <option value="TV Show">TV shows</option>
+            </select>
+          </label>
+          <label>Region
+            <select id="regionFilter"><option value="All">All regions</option></select>
+          </label>
+          <label>Genre
+            <select id="genreFilter"><option value="All">All genres</option></select>
+          </label>
+          <label>Release year
+            <select id="yearFilter"><option value="All">All years</option></select>
+          </label>
+          <button id="resetFilters">Reset filters</button>
+        </div>
+
+        <div id="viewRoot"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="importModal" hidden>
+    <section class="import-modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">DATA SOURCE</span>
+          <h2 id="importTitle">Import another catalogue</h2>
+          <p>Upload a CSV or JSON file. Your source file stays in this browser.</p>
+        </div>
+        <button id="closeImport" aria-label="Close import dialog">×</button>
+      </div>
+
+      <label class="drop-zone" id="dropZone">
+        <input id="dataFileInput" type="file" accept=".csv,.json,text/csv,application/json">
+        <span class="upload-icon">⇧</span>
+        <strong>Drop your dataset here</strong>
+        <small>or click to choose a CSV or JSON file</small>
+      </label>
+
+      <div class="schema-help">
+        <strong>Supported columns</strong>
+        <p><b>Required:</b> title, type, release_year/year</p>
+        <p><b>Optional:</b> genres/genre/listed_in, production_countries/country, age_certification/rating, runtime/duration, director, cast, IMDb score.</p>
+      </div>
+
+      <div class="import-result" id="importResult" hidden></div>
+      <div class="modal-actions">
+        <button class="restore-button" id="restoreData">Restore bundled data</button>
+        <button class="cancel-button" id="cancelImport">Cancel</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="vendor/d3.min.js"></script>
+  <script src="vendor/topojson-client.min.js"></script>
+  <script src="data/countries-110m.js"></script>
+  <script src="data/catalogue.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

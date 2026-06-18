@@ -325,6 +325,7 @@ main { grid-column: 2; min-width: 0; }
 .import-result.error { background: #feecec; color: #a91820; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .modal-actions button { padding: 8px 12px; border-radius: 7px; font-size: 10px; font-weight: 700; }
+.template-button { border: 1px solid var(--line); background: var(--ink); color: white; }
 .restore-button { margin-right: auto; border: 1px solid #f0c9cb; background: #fff7f7; color: var(--red); }
 .cancel-button { border: 1px solid var(--line); background: white; color: var(--ink); }
 

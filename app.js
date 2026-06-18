@@ -32,6 +32,13 @@ const qs = (selector, root = document) => root.querySelector(selector);
 const qsa = (selector, root = document) => [...root.querySelectorAll(selector)];
 const format = number => new Intl.NumberFormat("en-US").format(number);
 const pct = number => `${Math.round(number)}%`;
+const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#039;"
+})[character]);
 const group = (items, key) => items.reduce((acc, item) => {
   const value = typeof key === "function" ? key(item) : item[key];
   acc[value] = (acc[value] || 0) + 1;
@@ -149,6 +156,10 @@ async function importDataset(file) {
   result.textContent = "Reading and validating dataset...";
 
   try {
+    const extension = file.name.toLowerCase().split(".").pop();
+    if (!["csv", "json"].includes(extension)) throw new Error("Choose a CSV or JSON file.");
+    if (file.size > 15 * 1024 * 1024) throw new Error("The file is larger than 15 MB. Use a smaller extract.");
+
     const text = await file.text();
     let rows;
     if (file.name.toLowerCase().endsWith(".json")) {
@@ -158,6 +169,7 @@ async function importDataset(file) {
       rows = d3.csvParse(text);
     }
     if (!Array.isArray(rows) || !rows.length) throw new Error("No records were found in this file.");
+    if (rows.length > 25000) throw new Error("This browser version supports up to 25,000 rows per import.");
 
     const normalized = rows.map(normalizeRecord).filter(Boolean);
     if (!normalized.length) throw new Error("No valid rows found. The file needs title, type, and release year columns.");
@@ -204,7 +216,10 @@ function populateFilters() {
   const addOptions = (id, values, firstLabel) => {
     const select = qs(id);
     select.innerHTML = `<option value="All">${firstLabel}</option>`;
-    values.forEach(value => select.insertAdjacentHTML("beforeend", `<option value="${value}">${value}</option>`));
+    values.forEach(value => {
+      const safeValue = escapeHtml(value);
+      select.insertAdjacentHTML("beforeend", `<option value="${safeValue}">${safeValue}</option>`);
+    });
   };
   addOptions("#regionFilter", [...new Set(catalogue.map(item => item.region).filter(Boolean))].sort(), "All regions");
   addOptions("#genreFilter", [...new Set(catalogue.map(item => item.genre).filter(Boolean))].sort(), "All genres");
@@ -256,7 +271,7 @@ function lineChart(data, options = {}) {
 function barChart(entries, horizontal = false) {
   const max = Math.max(...entries.map(([, value]) => value), 1);
   if (horizontal) return `<div class="genre-list">${entries.map(([name, value], index) =>
-    `<div class="genre-row"><strong title="${name}">${name}</strong><div class="bar-track"><div class="bar-fill" style="width:${value / max * 100}%;--bar-color:${colors[index % colors.length]}"></div></div><b>${format(value)}</b></div>`
+    `<div class="genre-row"><strong title="${escapeHtml(name)}">${escapeHtml(name)}</strong><div class="bar-track"><div class="bar-fill" style="width:${value / max * 100}%;--bar-color:${colors[index % colors.length]}"></div></div><b>${format(value)}</b></div>`
   ).join("")}</div>`;
   const width = 650, height = 230, left = 35, bottom = 38, top = 12;
   const slot = (width - left - 10) / entries.length;
@@ -264,8 +279,8 @@ function barChart(entries, horizontal = false) {
     ${Array.from({ length: 4 }, (_, i) => `<line class="grid-line" x1="${left}" y1="${top + i * 48}" x2="${width - 10}" y2="${top + i * 48}"/>`).join("")}
     ${entries.map(([label, value], index) => {
       const h = value / max * 165;
-      return `<rect x="${left + index * slot + slot * .18}" y="${height - bottom - h}" width="${slot * .64}" height="${h}" rx="4" fill="${index === entries.length - 1 ? "#e50914" : "#dddde2"}" data-tip="${label}: ${value} titles"/>
-        <text class="axis-text" x="${left + index * slot + slot * .5}" y="${height - 17}" text-anchor="middle">${label}</text>`;
+      return `<rect x="${left + index * slot + slot * .18}" y="${height - bottom - h}" width="${slot * .64}" height="${h}" rx="4" fill="${index === entries.length - 1 ? "#e50914" : "#dddde2"}" data-tip="${escapeHtml(label)}: ${value} titles"/>
+        <text class="axis-text" x="${left + index * slot + slot * .5}" y="${height - 17}" text-anchor="middle">${escapeHtml(label)}</text>`;
     }).join("")}
   </svg></div>`;
 }
@@ -280,7 +295,7 @@ function donutChart(entries) {
   }).join(",");
   return `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${stops})">
     <div class="donut-center"><strong>${format(total)}</strong><small>titles</small></div></div>
-    <div class="legend">${entries.map(([label, value], index) => `<div class="legend-row"><i style="background:${colors[index % colors.length]}"></i><span>${label}</span><b>${pct(value / total * 100)}</b></div>`).join("")}</div></div>`;
+    <div class="legend">${entries.map(([label, value], index) => `<div class="legend-row"><i style="background:${colors[index % colors.length]}"></i><span>${escapeHtml(label)}</span><b>${pct(value / total * 100)}</b></div>`).join("")}</div></div>`;
 }
 
 function overviewView(data) {
@@ -346,13 +361,13 @@ function geographyView(data) {
   const regionCounts = topEntries(group(data, "region"), 5);
   return `<div class="metric-grid">
     ${metricCard("Markets represented", new Set(data.map(item => item.country)).size, "Production origins in this slice", "◎")}
-    ${metricCard("Top origin", ranked[0]?.[0] || "—", `${format(ranked[0]?.[1] || 0)} active titles`, "⌂", "#5687df")}
+    ${metricCard("Top origin", escapeHtml(ranked[0]?.[0] || "—"), `${format(ranked[0]?.[1] || 0)} active titles`, "⌂", "#5687df")}
     ${metricCard("Cross-region titles", format(Math.round(data.length * .34)), "Available in 3+ markets", "↔", "#8d67d5")}
     ${metricCard("Regional velocity", "+11.3%", "APAC leads additions", "↗", "#20a474")}
   </div>
   <div class="dashboard-grid">
     ${panel("Global content footprint", "Hover a market to inspect catalogue volume", worldMap(countryCounts, max), 8)}
-    ${panel("Leading markets", "Titles by country of origin", `<div class="country-list">${ranked.map(([name,value],i) => `<div class="country-row"><span>${i + 1}. ${name}</span><b>${value}</b><div class="bar-track"><div class="bar-fill" style="width:${value/max*100}%;--bar-color:${colors[i%colors.length]}"></div></div></div>`).join("")}</div>`, 4)}
+    ${panel("Leading markets", "Titles by country of origin", `<div class="country-list">${ranked.map(([name,value],i) => `<div class="country-row"><span>${i + 1}. ${escapeHtml(name)}</span><b>${value}</b><div class="bar-track"><div class="bar-fill" style="width:${value/max*100}%;--bar-color:${colors[i%colors.length]}"></div></div></div>`).join("")}</div>`, 4)}
     ${panel("Regional catalogue mix", "Share of selected content by region", donutChart(regionCounts), 5)}
     ${panel("Genre concentration by region", "Darker cells indicate higher representation", regionHeatmap(data), 7)}
   </div>`;
@@ -427,10 +442,10 @@ function regionHeatmap(data) {
   const values = regions.flatMap(region => selectedGenres.map(genre => data.filter(item => item.region === region && item.genre === genre).length));
   const max = Math.max(...values, 1);
   return `<div class="heatmap">
-    <div class="heat-row"><span></span>${selectedGenres.map(genre => `<span class="axis-text">${genre.split(" ")[0]}</span>`).join("")}</div>
-    ${regions.map(region => `<div class="heat-row"><span class="heat-label">${region}</span>${selectedGenres.map(genre => {
+    <div class="heat-row"><span></span>${selectedGenres.map(genre => `<span class="axis-text">${escapeHtml(genre.split(" ")[0])}</span>`).join("")}</div>
+    ${regions.map(region => `<div class="heat-row"><span class="heat-label">${escapeHtml(region)}</span>${selectedGenres.map(genre => {
       const value = data.filter(item => item.region === region && item.genre === genre).length;
-      return `<span style="background:rgba(229,9,20,${.08 + value/max*.82});color:${value/max>.55?"white":"#6d6d75"}" data-tip="${region} · ${genre}: ${value}">${value}</span>`;
+      return `<span style="background:rgba(229,9,20,${.08 + value/max*.82});color:${value/max>.55?"white":"#6d6d75"}" data-tip="${escapeHtml(region)} · ${escapeHtml(genre)}: ${value}">${value}</span>`;
     }).join("")}</div>`).join("")}
   </div>`;
 }
@@ -447,20 +462,20 @@ function peopleView(data) {
   const collaborations = topEntries(pairs, 8);
   return `<div class="metric-grid">
     ${metricCard("Contributors", new Set(data.flatMap(item => [item.director, ...item.cast])).size, "Directors and cast", "◇")}
-    ${metricCard("Top director", directors[0]?.[0] || "—", `${directors[0]?.[1] || 0} titles`, "✦", "#8d67d5")}
-    ${metricCard("Top cast member", actors[0]?.[0] || "—", `${actors[0]?.[1] || 0} appearances`, "★", "#d99822")}
+    ${metricCard("Top director", escapeHtml(directors[0]?.[0] || "—"), `${directors[0]?.[1] || 0} titles`, "✦", "#8d67d5")}
+    ${metricCard("Top cast member", escapeHtml(actors[0]?.[0] || "—"), `${actors[0]?.[1] || 0} appearances`, "★", "#d99822")}
     ${metricCard("Repeat pairings", collaborations.filter(([,v]) => v > 1).length, "Recurring collaborations", "↔", "#20a474")}
   </div>
   <div class="dashboard-grid">
     ${panel("Prolific directors", "Most titles in the selected catalogue", peopleCards(directors, "titles"), 6)}
     ${panel("Leading cast", "Most frequent catalogue appearances", peopleCards(actors, "credits"), 6)}
-    ${panel("Collaboration leaderboard", "Actor-director pairs with repeated work", `<table class="data-table"><thead><tr><th>Collaboration</th><th>Titles together</th><th>Signal</th></tr></thead><tbody>${collaborations.map(([name,value]) => `<tr><td>${name}</td><td>${value}</td><td><span class="pill ${value>2?"red":""}">${value>2?"Strong":"Developing"}</span></td></tr>`).join("")}</tbody></table>`, 7)}
+    ${panel("Collaboration leaderboard", "Actor-director pairs with repeated work", `<table class="data-table"><thead><tr><th>Collaboration</th><th>Titles together</th><th>Signal</th></tr></thead><tbody>${collaborations.map(([name,value]) => `<tr><td>${escapeHtml(name)}</td><td>${value}</td><td><span class="pill ${value>2?"red":""}">${value>2?"Strong":"Developing"}</span></td></tr>`).join("")}</tbody></table>`, 7)}
     ${panel("Network signal", "Automated contributor insight", `<div class="insight-card"><span class="eyebrow">COLLABORATION PATTERN</span><h3>Frequent creator pairings cluster around drama and international film.</h3><p>Repeat collaborators span more genres and remain active for longer than one-off pairings.</p><div class="insight-stats"><div><strong>2.4×</strong><small>Genre reach</small></div><div><strong>6.2 yr</strong><small>Avg span</small></div><div><strong>+14%</strong><small>Activity</small></div></div></div>`, 5)}
   </div>`;
 }
 
 function peopleCards(entries, unit) {
-  return `<div class="people-grid">${entries.map(([name,value]) => `<div class="person"><div class="person-avatar">${name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><strong>${name}</strong><small>${unit === "titles" ? "Director" : "Actor"}</small></div><b>${value} ${unit}</b></div>`).join("")}</div>`;
+  return `<div class="people-grid">${entries.map(([name,value]) => `<div class="person"><div class="person-avatar">${escapeHtml(name.split(" ").map(x=>x[0]).slice(0,2).join(""))}</div><div><strong>${escapeHtml(name)}</strong><small>${unit === "titles" ? "Director" : "Actor"}</small></div><b>${value} ${unit}</b></div>`).join("")}</div>`;
 }
 
 function libraryView(data) {
@@ -477,7 +492,7 @@ function libraryView(data) {
 
 function libraryTable(data) {
   return `<div style="overflow:auto"><table class="data-table"><thead><tr><th>Title</th><th>Type</th><th>Genre</th><th>Origin</th><th>Released</th><th>Rating</th></tr></thead>
-    <tbody>${data.map(item => `<tr><td class="title-cell"><strong>${item.title}</strong><small>${item.director}</small></td><td><span class="pill ${item.type==="Movie"?"red":""}">${item.type}</span></td><td>${item.genre}</td><td>${item.country}</td><td>${item.year}</td><td>${item.rating}</td></tr>`).join("")}</tbody></table></div>`;
+    <tbody>${data.map(item => `<tr><td class="title-cell"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.director)}</small></td><td><span class="pill ${item.type==="Movie"?"red":""}">${escapeHtml(item.type)}</span></td><td>${escapeHtml(item.genre)}</td><td>${escapeHtml(item.country)}</td><td>${item.year}</td><td>${escapeHtml(item.rating)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function emptyState() {
@@ -539,6 +554,21 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove("show"), 2500);
 }
 
+function downloadImportTemplate() {
+  const template = [
+    ["title", "type", "release_year", "genres", "country", "rating", "runtime", "director", "cast", "imdb_score"],
+    ["Example Movie", "Movie", "2024", "Drama|Thriller", "India", "PG-13", "118", "Example Director", "Actor One|Actor Two", "7.5"],
+    ["Example Series", "TV Show", "2023", "Comedy", "United States", "TV-MA", "42", "Example Creator", "Actor Three|Actor Four", "8.1"]
+  ];
+  const csv = template.map(row => row.map(value => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "netflix-import-template.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 populateFilters();
 qsa(".nav-item").forEach(button => button.addEventListener("click", () => {
   qsa(".nav-item").forEach(item => item.classList.remove("active"));
@@ -569,11 +599,46 @@ qs("#globalSearch").addEventListener("input", event => {
   window.searchTimer = setTimeout(render, 180);
 });
 qs("#exportButton").addEventListener("click", exportCsv);
+qs("#importButton").addEventListener("click", openImportModal);
+qs("#downloadTemplate").addEventListener("click", downloadImportTemplate);
+qs("#closeImport").addEventListener("click", closeImportModal);
+qs("#cancelImport").addEventListener("click", closeImportModal);
+qs("#importModal").addEventListener("click", event => {
+  if (event.target === qs("#importModal")) closeImportModal();
+});
+qs("#dataFileInput").addEventListener("change", event => {
+  const [file] = event.target.files;
+  if (file) importDataset(file);
+});
+const dropZone = qs("#dropZone");
+["dragenter", "dragover"].forEach(type => dropZone.addEventListener(type, event => {
+  event.preventDefault();
+  dropZone.classList.add("dragging");
+}));
+["dragleave", "drop"].forEach(type => dropZone.addEventListener(type, event => {
+  event.preventDefault();
+  dropZone.classList.remove("dragging");
+}));
+dropZone.addEventListener("drop", event => {
+  const [file] = event.dataTransfer.files;
+  if (file) importDataset(file);
+});
+qs("#restoreData").addEventListener("click", () => {
+  catalogue = [...bundledCatalogue];
+  datasetName = "Bundled dataset";
+  resetDashboardState();
+  updateDatasetStatus();
+  render();
+  closeImportModal();
+  showToast("Bundled Netflix dataset restored");
+});
 qs(".menu-toggle").addEventListener("click", () => qs(".sidebar").classList.toggle("open"));
 document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !qs("#importModal").hidden) closeImportModal();
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
     qs("#globalSearch").focus();
   }
 });
+updateDatasetStatus();
 render();

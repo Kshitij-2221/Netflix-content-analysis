@@ -6,10 +6,11 @@ A polished, dependency-free MVP of the Netflix Content Analysis Platform describ
 
 - Catalogue overview with title, movie, TV, and release KPIs
 - Cross-dashboard filters for type, region, genre, and release year
-- Temporal trends, seasonality, 12-month forecast, and model signals
+- Release-year trends, runtime distribution, genre momentum, and an illustrative five-year outlook
 - Geographic content footprint, regional mix, and genre concentration
 - Cast/director leaderboards and collaboration intelligence
 - Searchable content library and filtered CSV export
+- CSV/JSON dataset import with drag-and-drop, validation, safe text rendering, and a downloadable template
 - Responsive desktop, tablet, and mobile layouts
 - Real dataset with 5,850 titles and 77,801 cast/director credits
 
@@ -22,6 +23,16 @@ python -m http.server 8000
 ```
 
 Then visit `http://localhost:8000`.
+
+## Import another dataset
+
+Select **Import data** in the header. You can download the included CSV template or upload a CSV/JSON file with:
+
+- Required: `title` and `release_year`/`year`
+- Recommended: `type`, `genres`/`listed_in`, `country`, `rating`, `runtime`, `director`, and `cast`
+- Limits: CSV or JSON, up to 15 MB and 25,000 rows
+
+Imported data is used for the current browser session. Select **Restore bundled data** to return to the included catalogue.
 
 ## Project structure
 
